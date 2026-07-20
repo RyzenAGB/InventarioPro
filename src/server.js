@@ -70,12 +70,16 @@ async function start() {
   await initDb();
   console.log('✅ Base de datos inicializada');
 
-  app.listen(PORT, () => {
-    console.log(`\n🚀 ProAlmacén corriendo en http://localhost:${PORT}`);
-    console.log(`   Credenciales de prueba: admin@proalmacen.com / admin123\n`);
-  });
+  // Si NO estamos en Vercel, arrancamos el servidor en el puerto
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    app.listen(PORT, () => {
+      console.log(`\n🚀 ProAlmacén corriendo en http://localhost:${PORT}`);
+      console.log(`   Credenciales de prueba: admin@proalmacen.com / admin123\n`);
+    });
+  }
 }
 
 start().catch(err => { console.error('Error al arrancar:', err); process.exit(1); });
 
+module.exports = app;
 
