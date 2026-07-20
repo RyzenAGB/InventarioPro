@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProAlmacén — Panel de control</title>
+  <meta name="description" content="Sistema de gestión de inventario, préstamos y herramientas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<!-- ── Toast container ──────────────────────────────────── -->
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!--  LAYOUT PRINCIPAL                                      -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="app-layout">
+
+  <!-- ── Sidebar ────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i data-lucide="package"></i></div>
+      <div>
+        <div class="brand-name">ProAlmacén</div>
+        <div class="brand-sub" id="nombre-almacen">Cargando...</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button id="nav-dashboard"  class="nav-item active"  onclick="navegarA('dashboard')">
+        <span class="nav-icon"><i data-lucide="layout-dashboard"></i></span> Dashboard
+      </button>
+      <button id="nav-inventario" class="nav-item"         onclick="navegarA('inventario')">
+        <span class="nav-icon"><i data-lucide="wrench"></i></span> Inventario
+      </button>
+      <button id="nav-prestamos"  class="nav-item"         onclick="navegarA('prestamos')">
+        <span class="nav-icon"><i data-lucide="arrow-left-right"></i></span> Préstamos
+        <span id="badge-prestamos" class="badge badge-prestada hidden" style="margin-left:auto">0</span>
+      </button>
+      <button id="nav-solicitudes" class="nav-item"        onclick="navegarA('solicitudes')">
+        <span class="nav-icon"><i data-lucide="clipboard-list"></i></span> Solicitudes
+        <span id="badge-solicitudes" class="badge badge-reparacion hidden" style="margin-left:auto">0</span>
+      </button>
+      <button id="nav-historial"  class="nav-item"         onclick="navegarA('historial')">
+        <span class="nav-icon"><i data-lucide="scroll-text"></i></span> Historial
+      </button>
+
+      <div class="nav-divider admin-only"></div>
+      <button id="nav-categorias" class="nav-item admin-only" onclick="navegarA('categorias')">
+        <span class="nav-icon"><i data-lucide="tag"></i></span> Categorías
+      </button>
+      <button id="nav-usuarios"   class="nav-item admin-only" onclick="navegarA('usuarios')">
+        <span class="nav-icon"><i data-lucide="users"></i></span> Usuarios
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-version">v1.1 · Multi-empresa</div>
+    </div>
+  </aside>
+
+  <!-- Overlay para cerrar sidebar en móvil -->
+  <div id="sidebar-overlay"></div>
+
+  <!-- ── Contenido principal ────────────────────────────── -->
+  <div class="main-wrapper">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <!-- Botón hamburguesa (solo visible en móvil vía CSS) -->
+        <button class="btn-hamburger" id="btn-hamburger" onclick="abrirSidebar()" aria-label="Abrir menú">
+          <i data-lucide="menu" style="width:20px;height:20px"></i>
+        </button>
+        <h1 id="topbar-title" class="topbar-title">Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <button class="topbar-user-btn" id="topbar-user-btn" onclick="toggleUserMenu()">
+          <div class="user-avatar" id="topbar-avatar">AD</div>
+          <div class="user-info">
+            <span id="topbar-nombre">Cargando...</span>
+            <small id="topbar-rol"></small>
+          </div>
+          <span class="chevron"><i data-lucide="chevron-down" style="width:14px;height:14px"></i></span>
+        </button>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="dropdown-header">
+            <div id="dd-nombre"></div>
+            <small id="dd-correo" class="text-muted"></small>
+          </div>
+          <hr class="dropdown-divider">
+          <button class="dropdown-item" onclick="cerrarSesion()"><i data-lucide="log-out" style="width:16px;height:16px"></i> Cerrar sesión</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: DASHBOARD                                  -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-dashboard" class="section-view active">
+      <div class="stats-grid">
+        <div class="stat-card stat-total">
+          <div class="stat-value" id="stat-total"></div>
+          <div class="stat-label">Total herramientas</div>
+        </div>
+        <div class="stat-card stat-disponible">
+          <div class="stat-value" id="stat-disponibles"></div>
+          <div class="stat-label">Disponibles</div>
+        </div>
+        <div class="stat-card stat-prestada">
+          <div class="stat-value" id="stat-prestadas"></div>
+          <div class="stat-label">Prestadas</div>
+        </div>
+        <div class="stat-card stat-reparacion">
+          <div class="stat-value" id="stat-reparacion"></div>
+          <div class="stat-label">En reparación</div>
+        </div>
+        <div class="stat-card stat-fuera">
+          <div class="stat-value" id="stat-fuera"></div>
+          <div class="stat-label">Fuera de servicio</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="card-header">
+          <h2 class="card-title flex align-center gap-2"><i data-lucide="clipboard-list"></i> Prstamos activos recientes</h2>
+          <button class="btn btn-ghost btn-sm" onclick="navegarA('prestamos')">Ver todos →</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Herramienta</th>
+                <th>Técnico</th>
+                <th>Fecha salida</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-prestamos-recientes">
+              <tr><td colspan="4"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: SOLICITUDES                                -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-solicitudes" class="section-view">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input id="search-solicitudes" type="search" class="input-search"
+                 placeholder="Buscar solicitud…" oninput="filtrarSolicitudes()">
+          <select id="filtro-estado-sol" class="input-select" onchange="filtrarSolicitudes()">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="aprobada">Aprobada</option>
+            <option value="rechazada">Rechazada</option>
+            <option value="cancelada">Cancelada</option>
+          </select>
+        </div>
+        <!-- Botón solicitar solo para técnicos -->
+        <div class="toolbar-right" id="btn-nueva-solicitud-wrap" style="display:none">
+          <button class="btn btn-primary" onclick="abrirModalSolicitud()">
+            <i data-lucide="plus"></i> Solicitar herramienta
+          </button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Herramienta</th>
+                <th class="admin-only">Técnico</th>
+                <th>Fecha</th>
+                <th>Estado</th>
+                <th>Observaciones</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-solicitudes">
+              <tr><td colspan="6"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: INVENTARIO                                 -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-inventario" class="section-view">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input id="search-inventario" type="search" class="input-search"
+                 placeholder="Buscar herramienta...…" oninput="filtrarInventario()">
+          <select id="filtro-categoria" class="input-select" onchange="filtrarInventario()">
+            <option value="">Todas las categoras</option>
+          </select>
+          <select id="filtro-estado" class="input-select" onchange="filtrarInventario()">
+            <option value="">Todos los estados</option>
+            <option value="disponible">Disponible</option>
+            <option value="prestada">Prestada</option>
+            <option value="en_reparacion">En reparación</option>
+            <option value="fuera_de_servicio">Fuera de servicio</option>
+          </select>
+        </div>
+        <div class="toolbar-right admin-only">
+          <button class="btn btn-primary" onclick="abrirModalHerramienta()">+ Nueva herramienta...</button>
+        </div>
+      </div>
+      <div class="count-bar">
+        <span id="count-inventario" class="text-muted text-sm">Cargando...</span>
+      </div>
+
+      <div class="section-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Herramienta</th>
+                <th>Marca / Modelo</th>
+                <th>Categoría</th>
+                <th>Estado</th>
+                <th class="admin-only">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-inventario">
+              <tr><td colspan="6"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: PRÉSTAMOS                                  -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-prestamos" class="section-view">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input id="search-prestamos" type="search" class="input-search"
+                 placeholder="Buscar préstamo…" oninput="filtrarPrestamos()">
+          <select id="filtro-estatus" class="input-select" onchange="filtrarPrestamos()">
+            <option value="">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="devuelto">Devuelto</option>
+          </select>
+        </div>
+        <div class="toolbar-right admin-only">
+          <button class="btn btn-primary" onclick="abrirModalPrestamo()">+ Nuevo préstamo</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Herramienta</th>
+                <th>Técnico</th>
+                <th>Fecha salida</th>
+                <th>Fecha devolución</th>
+                <th>Estado</th>
+                <th class="admin-only">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-prestamos">
+              <tr><td colspan="6"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: HISTORIAL                                  -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-historial" class="section-view">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input id="search-historial" type="search" class="input-search"
+                 placeholder="Buscar en historial…" oninput="filtrarHistorial()">
+          <select id="filtro-tipo-mov" class="input-select" onchange="filtrarHistorial()">
+            <option value="">Todos los movimientos</option>
+            <option value="alta">Alta</option>
+            <option value="baja">Baja</option>
+            <option value="edicion">Edición</option>
+            <option value="prestamo">Préstamo</option>
+            <option value="devolucion">Devolución</option>
+            <option value="reparacion">Reparación</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Herramienta</th>
+                <th>Usuario</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-historial">
+              <tr><td colspan="5"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: CATEGORÍAS (admin)                         -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-categorias" class="section-view">
+      <div class="toolbar">
+        <div class="toolbar-right">
+          <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Nueva categoría</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Nombre</th><th>Descripción</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tbody-categorias">
+              <tr><td colspan="3"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  SECCIÓN: USUARIOS (admin)                           -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <main id="view-usuarios" class="section-view">
+      <!-- Panel de código de empresa (solo admin) -->
+      <div class="section-card admin-only" style="margin-bottom:0">
+        <div class="card-header">
+          <h2 class="card-title flex align-center gap-2"><i data-lucide="building-2"></i> Mi Empresa</h2>
+        </div>
+        <div class="modal-body" style="padding:1.25rem 1.5rem">
+          <p class="text-sm text-secondary" style="margin-bottom:.75rem">
+            Comparte este código con tus técnicos para que puedan unirse a <strong id="empresa-nombre-display">tu empresa</strong>.
+          </p>
+          <div class="codigo-box" style="display:flex;align-items:center;gap:.75rem;background:var(--surface-3);border:1px solid var(--border-strong);border-radius:var(--radius);padding:.75rem 1rem;max-width:340px">
+            <span class="codigo-empresa" id="empresa-codigo-display" style="font-size:1.4rem;font-family:monospace;letter-spacing:.2em;color:var(--primary-light);font-weight:700">———</span>
+            <button class="btn btn-ghost btn-sm" onclick="copiarTexto(document.getElementById('empresa-codigo-display').textContent)">
+              <i data-lucide="copy"></i> Copiar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Registro</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-usuarios">
+              <tr><td colspan="6"><div class="empty-state"><span class="spinner"></span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div><!-- /main-wrapper -->
+</div><!-- /app-layout -->
+
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!--  MODALES                                                 -->
+<!-- ════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Nueva / Editar herramienta... -->
+<div class="modal-overlay" id="modal-herramienta...">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-herramienta...-titulo">Nueva herramienta...</h3>
+      <button class="modal-close" onclick="cerrarModal('modal-herramienta...')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="h-id">
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="h-nombre">Nombre <span class="required">*</span></label>
+          <input type="text" id="h-nombre" class="form-input" placeholder="Ej: Taladro Bosch">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-codigo">Código único <span class="required">*</span></label>
+          <input type="text" id="h-codigo" class="form-input" placeholder="Ej: TL-001" style="text-transform:uppercase">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-marca">Marca</label>
+          <input type="text" id="h-marca" class="form-input" placeholder="Ej: Bosch">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-modelo">Modelo</label>
+          <input type="text" id="h-modelo" class="form-input" placeholder="Ej: GBM10RE">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-categoria">Categoría</label>
+          <select id="h-categoria" class="form-input">
+            <option value="">Sin categoría</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="h-estado">Estado</label>
+          <select id="h-estado" class="form-input">
+            <option value="disponible">Disponible</option>
+            <option value="en_reparacion">En reparación</option>
+            <option value="fuera_de_servicio">Fuera de servicio</option>
+          </select>
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label" for="h-descripcion">Descripción</label>
+          <textarea id="h-descripcion" class="form-input" rows="2" placeholder="Características, observaciones…"></textarea>
+        </div>
+      </div>
+      <div id="err-herramienta..." class="form-error-msg"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-herramienta...')">Cancelar</button>
+      <button id="btn-guardar-herramienta..." class="btn btn-primary" onclick="guardarHerramienta()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nuevo préstamo -->
+<div class="modal-overlay" id="modal-prestamo">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Nuevo préstamo</h3>
+      <button class="modal-close" onclick="cerrarModal('modal-prestamo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="p-herramienta...">Herramienta <span class="required">*</span></label>
+        <select id="p-herramienta..." class="form-input">
+          <option value="">Cargando...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="p-tecnico">Técnico <span class="required">*</span></label>
+        <select id="p-tecnico" class="form-input">
+          <option value="">Cargando...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="p-observaciones">Observaciones</label>
+        <textarea id="p-observaciones" class="form-input" rows="2" placeholder="Notas adicionales…"></textarea>
+      </div>
+      <div id="err-prestamo" class="form-error-msg"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-prestamo')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarPrestamo()">Registrar préstamo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva / Editar categoría -->
+<div class="modal-overlay" id="modal-categoria">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3 id="modal-cat-titulo">Nueva categoría</h3>
+      <button class="modal-close" onclick="cerrarModal('modal-categoria')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="cat-id">
+      <div class="form-group">
+        <label class="form-label" for="cat-nombre">Nombre <span class="required">*</span></label>
+        <input type="text" id="cat-nombre" class="form-input" placeholder="Ej: Herramientas eléctricas">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cat-desc">Descripción</label>
+        <textarea id="cat-desc" class="form-input" rows="2"></textarea>
+      </div>
+      <div id="err-categoria" class="form-error-msg"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-categoria')">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarCategoria()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Solicitar herramienta -->
+<div class="modal-overlay" id="modal-solicitud">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Solicitar herramienta</h3>
+      <button class="modal-close" onclick="cerrarModal('modal-solicitud')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="sol-herramienta">Herramienta <span class="required">*</span></label>
+        <select id="sol-herramienta" class="form-input">
+          <option value="">Cargando...</option>
+        </select>
+      </div>
+      <div class="form-group form-full">
+        <label class="form-label" for="sol-observaciones">Observaciones</label>
+        <textarea id="sol-observaciones" class="form-input" rows="2" placeholder="Ej: Para el área de mantenimiento..."></textarea>
+      </div>
+      <div id="err-solicitud" class="form-error-msg"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-solicitud')">Cancelar</button>
+      <button id="btn-enviar-solicitud" class="btn btn-primary" onclick="enviarSolicitud()">
+        <i data-lucide="send" style="width:16px;height:16px"></i> Enviar solicitud
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Rechazar solicitud -->
+<div class="modal-overlay" id="modal-rechazo">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h3>Rechazar solicitud</h3>
+      <button class="modal-close" onclick="cerrarModal('modal-rechazo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm text-secondary" style="margin-bottom:1rem">Indica el motivo del rechazo para que el técnico lo sepa.</p>
+      <div class="form-group">
+        <label class="form-label" for="rechazo-motivo">Motivo (opcional)</label>
+        <textarea id="rechazo-motivo" class="form-input" rows="2" placeholder="Ej: Herramienta reservada para otro trabajo..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-rechazo')">Cancelar</button>
+      <button class="btn btn-danger" onclick="confirmarRechazo()">Rechazar</button>
+    </div>
+  </div>
+</div>
+
+<script src="/js/utils.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/inventario.js"></script>
+<script src="/js/prestamos.js"></script>
+<script src="/js/solicitudes.js"></script>
+<script src="/js/historial.js"></script>
+<script>
+  lucide.createIcons();
+</script>
+</body>
+</html>

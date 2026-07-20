@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProAlmacén - Acceso</title>
+  <meta name="description" content="Sistema de gestión de almacén e inventario de herramientas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/login.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+<div id="toast-container" aria-live="polite"></div>
+
+<div class="auth-bg">
+  <!-- Orbs decorativos -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="auth-container">
+
+    <!-- ── Logo ─────────────────────────────────────────── -->
+    <div class="auth-logo">
+      <div class="logo-icon"><i data-lucide="package"></i></div>
+      <div>
+        <div class="logo-title">ProAlmacén</div>
+        <div class="logo-sub">Sistema de gestión de inventario</div>
+      </div>
+    </div>
+
+    <!-- ── Tabs ──────────────────────────────────────────── -->
+    <div class="auth-tabs">
+      <button id="tab-login"    class="auth-tab active"  onclick="switchTab('login')">Iniciar sesión</button>
+      <button id="tab-registro" class="auth-tab"         onclick="switchTab('registro')">Registrarse</button>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  PANEL: LOGIN                                        -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <div id="panel-login" class="auth-panel active">
+      <form id="form-login" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="login-correo">Correo electrónico</label>
+          <input type="email" id="login-correo" class="form-input"
+                 placeholder="usuario@empresa.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-contrasena">Contraseña</label>
+          <div class="input-password-wrap">
+            <input type="password" id="login-contrasena" class="form-input"
+                   placeholder="••••••••" autocomplete="current-password">
+            <button type="button" class="btn-toggle-pass" onclick="togglePass('login-contrasena', this)"><i data-lucide="eye"></i></button>
+          </div>
+        </div>
+        <div id="err-login-general" class="form-error-msg"></div>
+        <button type="submit" id="btn-login" class="btn btn-primary btn-block">
+          Iniciar sesión
+        </button>
+      </form>
+      <div class="auth-hint">
+        <span class="text-muted text-sm">Credenciales demo: </span>
+        <code class="demo-code">admin@proalmacen.com / admin123</code>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════ -->
+    <!--  PANEL: REGISTRO                                     -->
+    <!-- ════════════════════════════════════════════════════ -->
+    <div id="panel-registro" class="auth-panel">
+
+      <!-- Selector de tipo -->
+      <div id="registro-formularios">
+        <div class="tipo-selector">
+          <button id="opt-nueva"   class="tipo-opt selected"   onclick="seleccionarTipo('nueva')">
+            <span class="tipo-icon"><i data-lucide="building-2"></i></span>
+            <div>
+              <div class="tipo-title">Nueva empresa</div>
+              <div class="tipo-desc">Crear empresa y almacén</div>
+            </div>
+          </button>
+          <button id="opt-unirse" class="tipo-opt"             onclick="seleccionarTipo('unirse')">
+            <span class="tipo-icon"><i data-lucide="handshake"></i></span>
+            <div>
+              <div class="tipo-title">Unirse</div>
+              <div class="tipo-desc">Tengo un código de empresa</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Form nueva empresa -->
+        <form id="form-nueva" class="registro-form active" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="reg-empresa">Nombre de la empresa</label>
+            <input type="text" id="reg-empresa" class="form-input" placeholder="Mi Empresa S.A.">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-almacen">Nombre del almacén</label>
+            <input type="text" id="reg-almacen" class="form-input" placeholder="Almacén Principal">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-nombre">Tu nombre completo</label>
+            <input type="text" id="reg-nombre" class="form-input" placeholder="Juan Pérez">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-correo">Correo electrónico</label>
+            <input type="email" id="reg-correo" class="form-input" placeholder="admin@empresa.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="reg-pass">Contraseña (mín. 6 caracteres)</label>
+            <input type="password" id="reg-pass" class="form-input" placeholder="••••••••">
+          </div>
+          <div id="err-reg-nueva" class="form-error-msg"></div>
+          <button type="submit" id="btn-reg-nueva" class="btn btn-primary btn-block">
+            Crear empresa
+          </button>
+        </form>
+
+        <!-- Form unirse -->
+        <form id="form-unirse" class="registro-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="unirse-codigo">Código de empresa</label>
+            <input type="text" id="unirse-codigo" class="form-input" placeholder="ABC123"
+                   style="text-transform:uppercase; font-family:monospace; letter-spacing:.1em">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="unirse-nombre">Tu nombre completo</label>
+            <input type="text" id="unirse-nombre" class="form-input" placeholder="Carlos López">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="unirse-correo">Correo electrónico</label>
+            <input type="email" id="unirse-correo" class="form-input" placeholder="tecnico@empresa.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="unirse-pass">Contraseña</label>
+            <input type="password" id="unirse-pass" class="form-input" placeholder="••••••••">
+          </div>
+          <div id="err-reg-unirse" class="form-error-msg"></div>
+          <button type="submit" id="btn-reg-unirse" class="btn btn-primary btn-block">
+            Unirme al almacén
+          </button>
+        </form>
+      </div>
+
+      <!-- Ééxito tras registro -->
+      <div id="registro-exito" class="exito-box" style="display:none">
+        <div class="exito-icon"><i data-lucide="party-popper" style="width:48px;height:48px;"></i></div>
+        <h3>¡Empresa creada con ééxito!</h3>
+        <p>Comparte este código con tus tcnicos para que se unan al almacén:</p>
+        <div class="codigo-box">
+          <code id="codigo-empresa-texto" class="codigo-empresa"></code>
+          <button class="btn btn-ghost btn-sm" onclick="copiarCodigo()"><i data-lucide="copy"></i> Copiar</button>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="switchTab('login')">
+          Ir al inicio de sesión →
+        </button>
+      </div>
+
+    </div><!-- /panel-registro -->
+
+  </div><!-- /auth-container -->
+</div><!-- /auth-bg -->
+
+<script src="/js/utils.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  lucide.createIcons();
+</script>
+</body>
+</html>
