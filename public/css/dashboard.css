@@ -277,50 +277,91 @@
 }
 #sidebar-overlay.active { display: block; }
 
+/* Bottom Navigation Bar oculta en escritorio */
+.bottom-nav { display: none; }
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Layout pasa a columna única */
   .app-layout { grid-template-columns: 1fr; }
 
-  /* Sidebar se convierte en drawer deslizable */
+  /* Ocultar sidebar normal en móvil */
   .sidebar {
+    display: none;
+  }
+
+  /* Bottom Navigation Bar */
+  .bottom-nav {
     display: flex;
     position: fixed;
-    left: -260px;
-    top: 0;
-    width: 240px;
-    height: 100vh;
-    z-index: 500;
-    transition: left .28s cubic-bezier(.4,0,.2,1);
-    box-shadow: none;
-  }
-  .sidebar.open {
+    bottom: 0;
     left: 0;
-    box-shadow: 4px 0 24px rgba(0,0,0,.5);
+    width: 100%;
+    background: var(--surface);
+    border-top: 1px solid var(--border-strong);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 500;
   }
 
-
-  /* Topbar: mostrar botón hamburguesa */
-  .topbar { padding: .65rem 1rem; }
-  .btn-hamburger {
+  .bottom-nav .nav-item {
+    flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--surface-2);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    color: var(--text-secondary);
-    width: 36px; height: 36px;
-    flex-shrink: 0;
+    gap: 0.25rem;
+    padding: 0.5rem 0;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    transition: color var(--transition);
+    cursor: pointer;
   }
+
+  .bottom-nav .nav-item i {
+    width: 22px;
+    height: 22px;
+  }
+
+  .bottom-nav .nav-item.active {
+    color: var(--primary-light);
+  }
+
+  .bottom-nav .icon-wrapper {
+    position: relative;
+    display: flex;
+  }
+
+  .bottom-nav .badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    background: var(--danger);
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 10px;
+    display: none;
+  }
+
+  /* Topbar: ocultar botón hamburguesa porque ya no lo necesitamos */
+  .topbar { padding: .65rem 1rem; }
+  .btn-hamburger { display: none !important; }
+
   .topbar-left { display: flex; align-items: center; gap: .75rem; }
 
   /* User info: ocultar nombre en pantallas muy pequeñas */
   .user-info span { display: none; }
   .user-info small { display: none; }
 
-  /* Secciones */
-  .section-view { padding: 1rem .75rem; gap: 1rem; }
+  /* Espacio extra abajo para que el contenido no quede oculto por la barra */
+  .section-view {
+    padding: 1rem .75rem calc(1rem + 60px + env(safe-area-inset-bottom)) .75rem;
+    gap: 1rem;
+  }
 
   /* Stats grid: 2 columnas en móvil */
   .stats-grid { grid-template-columns: repeat(2, 1fr); }

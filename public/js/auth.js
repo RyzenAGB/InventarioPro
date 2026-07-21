@@ -2,6 +2,16 @@
 //  ProAlmacén  auth.js (pantalla de login)
 // ============================================================
 
+window.addEventListener('DOMContentLoaded', async () => {
+  // Verificar si ya hay sesión activa
+  try {
+    const { ok } = await api('GET', '/api/auth/me');
+    if (ok) {
+      window.location.replace('/dashboard.html');
+    }
+  } catch(e) {}
+});
+
 function switchTab(tab) {
   document.querySelectorAll('.auth-tab, .auth-panel').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
@@ -50,7 +60,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
 
   if (ok) {
     toast('¡Bienvenido, ' + data.usuario.nombre_completo + '!', 'success');
-    setTimeout(() => { window.location.href = '/dashboard.html'; }, 700);
+    setTimeout(() => { window.location.replace('/dashboard.html'); }, 700);
   } else {
     mostrarError('err-login-general', data.mensaje || 'Credenciales incorrectas');
   }

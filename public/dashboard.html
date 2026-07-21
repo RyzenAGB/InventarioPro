@@ -74,10 +74,6 @@
     <!-- Topbar -->
     <header class="topbar">
       <div class="topbar-left">
-        <!-- Botón hamburguesa (solo visible en móvil vía CSS) -->
-        <button class="btn-hamburger" id="btn-hamburger" onclick="abrirSidebar()" aria-label="Abrir menú">
-          <i data-lucide="menu" style="width:20px;height:20px"></i>
-        </button>
         <h1 id="topbar-title" class="topbar-title">Dashboard</h1>
       </div>
       <div class="topbar-right">
@@ -389,6 +385,33 @@
         </div>
       </div>
     </main>
+
+    <!-- 📱 Barra de navegación inferior (Solo móvil) -->
+    <nav class="bottom-nav">
+      <button id="nav-bottom-dashboard" class="nav-item active" onclick="navegarA('dashboard')">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Inicio</span>
+      </button>
+      <button id="nav-bottom-inventario" class="nav-item" onclick="navegarA('inventario')">
+        <i data-lucide="package-search"></i>
+        <span>Inventario</span>
+      </button>
+      <button id="nav-bottom-solicitudes" class="nav-item" onclick="navegarA('solicitudes')">
+        <div class="icon-wrapper">
+          <i data-lucide="bell"></i>
+          <span id="badge-bottom-sol" class="badge">0</span>
+        </div>
+        <span>Solicitudes</span>
+      </button>
+      <button id="nav-bottom-prestamos" class="nav-item" onclick="navegarA('prestamos')">
+        <i data-lucide="handshake"></i>
+        <span>Préstamos</span>
+      </button>
+      <button id="nav-bottom-usuarios" class="nav-item admin-only" onclick="navegarA('usuarios')">
+        <i data-lucide="users"></i>
+        <span>Usuarios</span>
+      </button>
+    </nav>
   </div><!-- /main-wrapper -->
 </div><!-- /app-layout -->
 

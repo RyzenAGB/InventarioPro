@@ -18,9 +18,27 @@ const TITULOS = {
 window.addEventListener('DOMContentLoaded', async () => {
   await cargarSesion();
   configurarUI();
-  await cargarDashboard();
+  
+  // Revisar si hay un hash en la URL para abrir esa sección inicialmente
+  const hashSection = window.location.hash.replace('#', '');
+  const seccionInicial = hashSection ? hashSection : 'dashboard';
+  
+  await navegarA(seccionInicial, false); // false para no volver a pushear al cargar
+  
   conectarSSE();
   actualizarBadgeSolicitudes();
+
+  // Smart Polling: Recargar vista activa cada 10s si la página es visible
+  setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      const activeSection = document.querySelector('.section-view.active');
+      if (activeSection) {
+        const seccion = activeSection.id.replace('view-', '');
+        recargarSeccion(seccion);
+      }
+      actualizarBadgeSolicitudes();
+    }
+  }, 10000);
 
   // Cerrar dropdown al clic fuera
   document.addEventListener('click', (e) => {
@@ -30,7 +48,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Cerrar sidebar en móvil al clic en overlay
     if (e.target.id === 'sidebar-overlay') cerrarSidebar();
   });
+
+  // Escuchar el botón atrás del navegador
+  window.addEventListener('popstate', (e) => {
+    const section = window.location.hash.replace('#', '') || 'dashboard';
+    navegarA(section, false);
+  });
 });
+
+function recargarSeccion(seccion) {
+  switch (seccion) {
+    case 'dashboard':   if (typeof cargarDashboard === 'function') cargarDashboard(true); break;
+    case 'inventario':  if (typeof cargarInventario === 'function') cargarInventario(true); break;
+    case 'prestamos':   if (typeof cargarPrestamos === 'function') cargarPrestamos(true);  break;
+    case 'solicitudes': if (typeof cargarSolicitudes === 'function') cargarSolicitudes(true); break;
+    case 'historial':   if (typeof cargarHistorial === 'function') cargarHistorial(true);  break;
+    case 'usuarios':    if (typeof cargarUsuarios === 'function') cargarUsuarios(true);   break;
+    case 'categorias':  if (typeof cargarCategorias === 'function') cargarCategorias(true); break;
+  }
+}
 
 // ── Sesión ────────────────────────────────────────────────
 async function cargarSesion() {
@@ -58,7 +94,7 @@ function configurarUI() {
 }
 
 // ── Navegación ────────────────────────────────────────────
-function navegarA(seccion) {
+async function navegarA(seccion, pushToHistory = true) {
   if (['usuarios', 'categorias'].includes(seccion) && usuarioActual?.rol !== 'admin') {
     toast('Acceso restringido a administradores', 'warning');
     return;
@@ -69,11 +105,21 @@ function navegarA(seccion) {
 
   const view = document.getElementById('view-' + seccion);
   const nav  = document.getElementById('nav-' + seccion);
+  const navBottom = document.getElementById('nav-bottom-' + seccion);
   if (view) view.classList.add('active');
   if (nav)  nav.classList.add('active');
+  if (navBottom) navBottom.classList.add('active');
 
   const titulo = document.getElementById('topbar-title');
   if (titulo) titulo.textContent = TITULOS[seccion] || seccion;
+
+  if (pushToHistory) {
+    const hash = seccion === 'dashboard' ? '' : '#' + seccion;
+    // Evitar pushear si ya estamos en ese estado
+    if (window.location.hash !== hash) {
+      window.history.pushState(null, '', window.location.pathname + hash);
+    }
+  }
 
   // Cerrar sidebar en móvil al navegar
   cerrarSidebar();
