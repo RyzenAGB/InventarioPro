@@ -177,12 +177,10 @@ async function _seedAdmin() {
   if (adminCheck) return;
 
   await db.tx(async (t) => {
-    await t.run("INSERT INTO empresas (nombre, codigo_unico) VALUES ('Mi Empresa', 'DEMO001')");
-    const { lastInsertRowid: empresaId } = await t.run('SELECT last_insert_rowid() AS lid');
+    const { lastInsertRowid: empresaId } = await t.run("INSERT INTO empresas (nombre, codigo_unico) VALUES ('Mi Empresa', 'DEMO001')");
 
-    await t.run('INSERT INTO almacenes (empresa_id, nombre, ubicacion) VALUES (?,?,?)',
+    const { lastInsertRowid: almacenId } = await t.run('INSERT INTO almacenes (empresa_id, nombre, ubicacion) VALUES (?,?,?)',
             [empresaId, 'Almacén Principal', 'Planta Baja']);
-    const { lastInsertRowid: almacenId } = await t.run('SELECT last_insert_rowid() AS lid');
 
     const hash = bcrypt.hashSync('admin123', 10);
     await t.run(
