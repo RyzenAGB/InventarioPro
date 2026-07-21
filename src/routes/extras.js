@@ -9,39 +9,39 @@ const { verificarSesion, soloAdmin } = require('../middleware/auth');
 const categorias = express.Router();
 categorias.use(verificarSesion);
 
-categorias.get('/', (req, res) => {
+categorias.get('/', async (req, res) => {
   const { almacen_id } = req.session.usuario;
   return res.json({
     ok: true,
-    categorias: getDb().all('SELECT * FROM categorias WHERE almacen_id = ? AND activo = 1 ORDER BY nombre', [almacen_id])
+    categorias: await getDb().all('SELECT * FROM categorias WHERE almacen_id = ? AND activo = 1 ORDER BY nombre', [almacen_id])
   });
 });
 
-categorias.post('/', soloAdmin, (req, res) => {
+categorias.post('/', soloAdmin, async (req, res) => {
   const { almacen_id } = req.session.usuario;
   const { nombre, descripcion } = req.body;
   if (!nombre?.trim()) return res.status(400).json({ ok: false, mensaje: 'Nombre requerido' });
-  const { lastInsertRowid: id } = getDb().run(
+  const { lastInsertRowid: id } = await getDb().run(
     'INSERT INTO categorias (almacen_id, nombre, descripcion) VALUES (?,?,?)',
     [almacen_id, nombre.trim(), descripcion?.trim() || null]
   );
   return res.status(201).json({ ok: true, id });
 });
 
-categorias.put('/:id', soloAdmin, (req, res) => {
+categorias.put('/:id', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id } = req.session.usuario;
   const { nombre, descripcion } = req.body;
-  const cat = db.one('SELECT * FROM categorias WHERE id = ? AND almacen_id = ?', [req.params.id, almacen_id]);
+  const cat = await db.one('SELECT * FROM categorias WHERE id = ? AND almacen_id = ?', [req.params.id, almacen_id]);
   if (!cat) return res.status(404).json({ ok: false, mensaje: 'Categoría no encontrada' });
-  db.run('UPDATE categorias SET nombre=?, descripcion=? WHERE id=?',
+  await db.run('UPDATE categorias SET nombre=?, descripcion=? WHERE id=?',
          [nombre?.trim() || cat.nombre, descripcion?.trim() || null, cat.id]);
   return res.json({ ok: true });
 });
 
-categorias.delete('/:id', soloAdmin, (req, res) => {
+categorias.delete('/:id', soloAdmin, async (req, res) => {
   const { almacen_id } = req.session.usuario;
-  getDb().run('UPDATE categorias SET activo=0 WHERE id=? AND almacen_id=?', [req.params.id, almacen_id]);
+  await getDb().run('UPDATE categorias SET activo=0 WHERE id=? AND almacen_id=?', [req.params.id, almacen_id]);
   return res.json({ ok: true });
 });
 
@@ -49,7 +49,7 @@ categorias.delete('/:id', soloAdmin, (req, res) => {
 const historial = express.Router();
 historial.use(verificarSesion);
 
-historial.get('/', (req, res) => {
+historial.get('/', async (req, res) => {
   const { almacen_id, id: usuario_id, rol } = req.session.usuario;
   let sql = `
     SELECT m.*, h.nombre AS herramienta_nombre, h.codigo_unico AS herramienta_codigo,
@@ -63,18 +63,18 @@ historial.get('/', (req, res) => {
   if (rol === 'tecnico') { sql += ' AND m.usuario_id = ?'; params.push(usuario_id); }
   sql += ' ORDER BY m.fecha DESC LIMIT 500';
 
-  return res.json({ ok: true, movimientos: getDb().all(sql, params) });
+  return res.json({ ok: true, movimientos: await getDb().all(sql, params) });
 });
 
 // ══ DASHBOARD ═════════════════════════════════════════════
 const dashboard = express.Router();
 dashboard.use(verificarSesion);
 
-dashboard.get('/', (req, res) => {
+dashboard.get('/', async (req, res) => {
   const db = getDb();
   const { almacen_id } = req.session.usuario;
 
-  const stats = db.one(
+  const stats = await db.one(
     `SELECT COUNT(*) AS total,
             SUM(CASE WHEN estado='disponible'        THEN 1 ELSE 0 END) AS disponibles,
             SUM(CASE WHEN estado='prestada'           THEN 1 ELSE 0 END) AS prestadas,
@@ -84,7 +84,7 @@ dashboard.get('/', (req, res) => {
     [almacen_id]
   );
 
-  const recientes = db.all(
+  const recientes = await db.all(
     `SELECT p.*, h.nombre AS herramienta_nombre, h.codigo_unico AS herramienta_codigo,
             t.nombre_completo AS tecnico_nombre
      FROM prestamos p
@@ -102,24 +102,24 @@ dashboard.get('/', (req, res) => {
 const usuarios = express.Router();
 usuarios.use(verificarSesion);
 
-usuarios.get('/', (req, res) => {
+usuarios.get('/', async (req, res) => {
   const { almacen_id } = req.session.usuario;
   const { rol } = req.query;
   let sql = 'SELECT id, nombre_completo, correo, rol, activo, fecha_registro FROM usuarios WHERE almacen_id = ?';
   const params = [almacen_id];
   if (rol) { sql += ' AND rol = ?'; params.push(rol); }
   sql += ' ORDER BY nombre_completo';
-  return res.json({ ok: true, usuarios: getDb().all(sql, params) });
+  return res.json({ ok: true, usuarios: await getDb().all(sql, params) });
 });
 
-usuarios.put('/:id', soloAdmin, (req, res) => {
+usuarios.put('/:id', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: adminId } = req.session.usuario;
   const { activo } = req.body;
-  const u = db.one('SELECT * FROM usuarios WHERE id = ? AND almacen_id = ?', [req.params.id, almacen_id]);
+  const u = await db.one('SELECT * FROM usuarios WHERE id = ? AND almacen_id = ?', [req.params.id, almacen_id]);
   if (!u)          return res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
   if (u.id === adminId) return res.status(400).json({ ok: false, mensaje: 'No puedes modificar tu propia cuenta' });
-  db.run('UPDATE usuarios SET activo = ? WHERE id = ?', [activo, u.id]);
+  await db.run('UPDATE usuarios SET activo = ? WHERE id = ?', [activo, u.id]);
   return res.json({ ok: true });
 });
 
@@ -127,12 +127,11 @@ usuarios.put('/:id', soloAdmin, (req, res) => {
 const empresa = express.Router();
 empresa.use(verificarSesion);
 
-empresa.get('/codigo', (req, res) => {
+empresa.get('/codigo', async (req, res) => {
   const { empresa_id } = req.session.usuario;
-  const row = getDb().one('SELECT codigo_unico, nombre FROM empresas WHERE id = ?', [empresa_id]);
+  const row = await getDb().one('SELECT codigo_unico, nombre FROM empresas WHERE id = ?', [empresa_id]);
   if (!row) return res.status(404).json({ ok: false, mensaje: 'Empresa no encontrada' });
   return res.json({ ok: true, codigo: row.codigo_unico, nombre: row.nombre });
 });
 
 module.exports = { categorias, historial, dashboard, usuarios, empresa };
-

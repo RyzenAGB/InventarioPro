@@ -1,45 +1,25 @@
 // ============================================================
-//  ProAlmacén — Base de datos con sql.js (SQLite en WASM)
-//  Diseño simple: funciones globales en lugar de wrapper OOP
+//  ProAlmacén — Base de datos con Turso (libSQL)
 // ============================================================
-const initSqlJs = require('sql.js');
-const fs        = require('fs');
-const path      = require('path');
-const bcrypt    = require('bcryptjs');
+const { createClient } = require('@libsql/client');
+const bcrypt = require('bcryptjs');
 
-const DB_PATH = path.join(__dirname, '..', '..', 'proalmacen.db');
-
-let _db = null;   // instancia sql.js Database
-let _inTx = false; // bandera de transacción activa
-
-// ── Persistir en disco ────────────────────────────────────
-function save() {
-  if (_inTx) return; // no guardar en medio de una TX
-  try {
-    const data = _db.export();
-    fs.writeFileSync(DB_PATH, Buffer.from(data));
-  } catch (error) {
-    console.warn("No se pudo guardar la base de datos en disco (probablemente estás en un entorno de solo lectura como Vercel). Los datos se mantendrán en memoria hasta que el servidor se reinicie.");
-  }
-}
+let client = null;
 
 // ── Helpers de query ──────────────────────────────────────
-function all(sql, params) {
-  const res = _db.exec(sql, params);
-  if (!res[0]) return [];
-  const { columns, values } = res[0];
-  return values.map(row => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
+async function all(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return result.rows;
 }
 
-function one(sql, params) {
-  return all(sql, params)[0] ?? null;
+async function one(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return result.rows[0] ?? null;
 }
 
-function run(sql, params) {
-  _db.run(sql, params);
-  if (!_inTx) save();
-  const row = one('SELECT last_insert_rowid() AS lid');
-  return { lastInsertRowid: row?.lid ?? 0 };
+async function run(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return { lastInsertRowid: result.lastInsertRowid ? Number(result.lastInsertRowid) : 0 };
 }
 
 // ── Objeto de acceso a datos ──────────────────────────────
@@ -48,51 +28,61 @@ const db = {
   one,
   run,
 
-  /** Ejecuta una función dentro de BEGIN/COMMIT con rollback en error */
-  tx(fn) {
-    _db.run('BEGIN');
-    _inTx = true;
+  /** Ejecuta una función dentro de una transacción asíncrona */
+  async tx(fn) {
+    const transaction = await client.transaction('write');
+    const tDb = {
+      async all(sql, params = []) {
+        const result = await transaction.execute({ sql, args: params });
+        return result.rows;
+      },
+      async one(sql, params = []) {
+        const result = await transaction.execute({ sql, args: params });
+        return result.rows[0] ?? null;
+      },
+      async run(sql, params = []) {
+        const result = await transaction.execute({ sql, args: params });
+        return { lastInsertRowid: result.lastInsertRowid ? Number(result.lastInsertRowid) : 0 };
+      }
+    };
+
     try {
-      const result = fn();
-      _db.run('COMMIT');
-      _inTx = false;
-      save();
+      const result = await fn(tDb);
+      await transaction.commit();
       return result;
     } catch (err) {
-      _db.run('ROLLBACK');
-      _inTx = false;
+      await transaction.rollback();
       throw err;
     }
   },
 };
 
-// ── Inicializar (async, llamar una sola vez al arrancar) ──
+// ── Inicializar ───────────────────────────────────────────
 async function initDb() {
-  if (_db) return db;
+  if (client) return db;
 
-  const SQL = await initSqlJs();
-
-  if (fs.existsSync(DB_PATH)) {
-    _db = new SQL.Database(fs.readFileSync(DB_PATH));
-  } else {
-    _db = new SQL.Database();
+  if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
+    throw new Error('Faltan TURSO_DATABASE_URL o TURSO_AUTH_TOKEN en el entorno.');
   }
 
-  _db.run('PRAGMA foreign_keys = ON');
+  client = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
 
-  _crearTablas();
-  _seedAdmin();
+  await _crearTablas();
+  await _seedAdmin();
 
   return db;
 }
 
 function getDb() {
-  if (!_db) throw new Error('DB no inicializada. Llama a initDb() primero.');
+  if (!client) throw new Error('DB no inicializada. Llama a initDb() primero.');
   return db;
 }
 
 // ── Crear esquema ─────────────────────────────────────────
-function _crearTablas() {
+async function _crearTablas() {
   const stmts = [
     `CREATE TABLE IF NOT EXISTS empresas (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -173,39 +163,38 @@ function _crearTablas() {
       respondido_por INTEGER,
       fecha_solicitud TEXT NOT NULL DEFAULT (datetime('now')),
       fecha_respuesta TEXT
-    )`,
+    )`
   ];
 
-  stmts.forEach(s => _db.run(s));
-  save();
+  for (const s of stmts) {
+    await client.execute(s);
+  }
 }
 
 // ── Datos semilla ─────────────────────────────────────────
-function _seedAdmin() {
-  if (one("SELECT id FROM empresas WHERE codigo_unico = 'DEMO001'")) return;
+async function _seedAdmin() {
+  const adminCheck = await one("SELECT id FROM empresas WHERE codigo_unico = 'DEMO001'");
+  if (adminCheck) return;
 
-  _db.run('BEGIN');
-  _inTx = true;
+  await db.tx(async (t) => {
+    await t.run("INSERT INTO empresas (nombre, codigo_unico) VALUES ('Mi Empresa', 'DEMO001')");
+    const { lastInsertRowid: empresaId } = await t.run('SELECT last_insert_rowid() AS lid');
 
-  _db.run("INSERT INTO empresas (nombre, codigo_unico) VALUES ('Mi Empresa', 'DEMO001')");
-  const { lid: empresaId } = one('SELECT last_insert_rowid() AS lid');
+    await t.run('INSERT INTO almacenes (empresa_id, nombre, ubicacion) VALUES (?,?,?)',
+            [empresaId, 'Almacén Principal', 'Planta Baja']);
+    const { lastInsertRowid: almacenId } = await t.run('SELECT last_insert_rowid() AS lid');
 
-  _db.run('INSERT INTO almacenes (empresa_id, nombre, ubicacion) VALUES (?,?,?)',
-          [empresaId, 'Almacén Principal', 'Planta Baja']);
-  const { lid: almacenId } = one('SELECT last_insert_rowid() AS lid');
+    const hash = bcrypt.hashSync('admin123', 10);
+    await t.run(
+      'INSERT INTO usuarios (empresa_id, almacen_id, nombre_completo, correo, contrasena_hash, rol) VALUES (?,?,?,?,?,?)',
+      [empresaId, almacenId, 'Administrador', 'admin@proalmacen.com', hash, 'admin']
+    );
 
-  const hash = bcrypt.hashSync('admin123', 10);
-  _db.run(
-    'INSERT INTO usuarios (empresa_id, almacen_id, nombre_completo, correo, contrasena_hash, rol) VALUES (?,?,?,?,?,?)',
-    [empresaId, almacenId, 'Administrador', 'admin@proalmacen.com', hash, 'admin']
-  );
-
-  ['Herramientas manuales','Herramientas eléctricas','Equipos de medición','Seguridad','Materiales']
-    .forEach(c => _db.run('INSERT INTO categorias (almacen_id, nombre) VALUES (?,?)', [almacenId, c]));
-
-  _db.run('COMMIT');
-  _inTx = false;
-  save();
+    const categorias = ['Herramientas manuales','Herramientas eléctricas','Equipos de medición','Seguridad','Materiales'];
+    for (const c of categorias) {
+      await t.run('INSERT INTO categorias (almacen_id, nombre) VALUES (?,?)', [almacenId, c]);
+    }
+  });
 
   console.log('✅ Datos iniciales creados — admin@proalmacen.com / admin123');
 }

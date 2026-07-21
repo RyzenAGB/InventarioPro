@@ -12,7 +12,7 @@ router.use(verificarSesion);
 
 // ── GET /api/solicitudes  ─────────────────────────────────
 // Admin ve todas del almacén. Técnico ve solo las suyas.
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const db = getDb();
   const { almacen_id, id: usuario_id, rol } = req.session.usuario;
 
@@ -33,11 +33,11 @@ router.get('/', (req, res) => {
   if (rol === 'tecnico') { sql += ' AND s.tecnico_id = ?'; params.push(usuario_id); }
   sql += ' ORDER BY s.fecha_solicitud DESC';
 
-  return res.json({ ok: true, solicitudes: db.all(sql, params) });
+  return res.json({ ok: true, solicitudes: await db.all(sql, params) });
 });
 
 // ── GET /api/solicitudes/pendientes/count ─────────────────
-router.get('/pendientes/count', (req, res) => {
+router.get('/pendientes/count', async (req, res) => {
   const db = getDb();
   const { almacen_id, id: usuario_id, rol } = req.session.usuario;
 
@@ -50,13 +50,13 @@ router.get('/pendientes/count', (req, res) => {
   // El técnico solo ve sus propias solicitudes pendientes en su badge
   if (rol === 'tecnico') { sql += ' AND s.tecnico_id = ?'; params.push(usuario_id); }
 
-  const row = db.one(sql, params);
+  const row = await db.one(sql, params);
   return res.json({ ok: true, total: row?.total ?? 0 });
 });
 
 // ── POST /api/solicitudes  ────────────────────────────────
 // Técnico (o admin) crea una solicitud
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const db = getDb();
   const { almacen_id, id: tecnico_id } = req.session.usuario;
   const { herramienta_id, observaciones } = req.body;
@@ -64,7 +64,7 @@ router.post('/', (req, res) => {
   if (!herramienta_id)
     return res.status(400).json({ ok: false, mensaje: 'Herramienta requerida' });
 
-  const h = db.one(
+  const h = await db.one(
     'SELECT * FROM herramientas WHERE id = ? AND almacen_id = ? AND activo = 1',
     [herramienta_id, almacen_id]
   );
@@ -74,7 +74,7 @@ router.post('/', (req, res) => {
     return res.status(400).json({ ok: false, mensaje: `La herramienta está "${h.estado}", no disponible` });
 
   // Verificar que no hay solicitud pendiente para esta herramienta
-  const pendiente = db.one(
+  const pendiente = await db.one(
     `SELECT id FROM solicitudes WHERE herramienta_id = ? AND estado = 'pendiente'`,
     [herramienta_id]
   );
@@ -82,18 +82,18 @@ router.post('/', (req, res) => {
     return res.status(400).json({ ok: false, mensaje: 'Ya hay una solicitud pendiente para esta herramienta' });
 
   try {
-    const { lastInsertRowid: id } = db.run(
+    const { lastInsertRowid: id } = await db.run(
       `INSERT INTO solicitudes (herramienta_id, tecnico_id, observaciones) VALUES (?,?,?)`,
       [h.id, tecnico_id, observaciones?.trim() || null]
     );
 
-    db.run(
+    await db.run(
       `INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'solicitud',?)`,
       [h.id, tecnico_id, `Solicitud enviada por técnico`]
     );
 
     // Notificar vía SSE a todos en el almacén
-    const tecnico = db.one('SELECT nombre_completo FROM usuarios WHERE id = ?', [tecnico_id]);
+    const tecnico = await db.one('SELECT nombre_completo FROM usuarios WHERE id = ?', [tecnico_id]);
     broadcast(almacen_id, 'solicitud_nueva', {
       id,
       herramienta_nombre: h.nombre,
@@ -109,12 +109,12 @@ router.post('/', (req, res) => {
 });
 
 // ── PUT /api/solicitudes/:id/aprobar  ─────────────────────
-router.put('/:id/aprobar', soloAdmin, (req, res) => {
+router.put('/:id/aprobar', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: admin_id } = req.session.usuario;
   const { respuesta } = req.body;
 
-  const sol = db.one(
+  const sol = await db.one(
     `SELECT s.*, h.almacen_id, h.nombre AS h_nombre, h.codigo_unico AS h_codigo,
             h.estado, t.nombre_completo AS tecnico_nombre
      FROM solicitudes s
@@ -132,23 +132,23 @@ router.put('/:id/aprobar', soloAdmin, (req, res) => {
   }
 
   try {
-    const prestamoId = db.tx(() => {
+    const prestamoId = await db.tx(async (t) => {
       const ahora = new Date().toISOString();
       // Actualizar solicitud
-      db.run(
+      await t.run(
         `UPDATE solicitudes SET estado='aprobada', respondido_por=?, respuesta=?, fecha_respuesta=? WHERE id=?`,
         [admin_id, respuesta?.trim() || null, ahora, sol.id]
       );
       // Crear préstamo
-      const { lastInsertRowid } = db.run(
+      const { lastInsertRowid } = await t.run(
         `INSERT INTO prestamos (herramienta_id, tecnico_id, autorizado_por, observaciones)
          VALUES (?,?,?,?)`,
         [sol.herramienta_id, sol.tecnico_id, admin_id, sol.observaciones]
       );
       // Cambiar estado herramienta
-      db.run(`UPDATE herramientas SET estado='prestada' WHERE id=?`, [sol.herramienta_id]);
+      await t.run(`UPDATE herramientas SET estado='prestada' WHERE id=?`, [sol.herramienta_id]);
       // Movimiento
-      db.run(
+      await t.run(
         `INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'solicitud_aprobada',?)`,
         [sol.herramienta_id, admin_id, `Solicitud aprobada → Préstamo a ${sol.tecnico_nombre}`]
       );
@@ -171,12 +171,12 @@ router.put('/:id/aprobar', soloAdmin, (req, res) => {
 });
 
 // ── PUT /api/solicitudes/:id/rechazar  ────────────────────
-router.put('/:id/rechazar', soloAdmin, (req, res) => {
+router.put('/:id/rechazar', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: admin_id } = req.session.usuario;
   const { respuesta } = req.body;
 
-  const sol = db.one(
+  const sol = await db.one(
     `SELECT s.*, h.almacen_id, h.nombre AS h_nombre, t.nombre_completo AS tecnico_nombre
      FROM solicitudes s
      JOIN herramientas h ON h.id = s.herramienta_id
@@ -190,11 +190,11 @@ router.put('/:id/rechazar', soloAdmin, (req, res) => {
   if (sol.estado !== 'pendiente') return res.status(400).json({ ok: false, mensaje: 'La solicitud ya fue resuelta' });
 
   const ahora = new Date().toISOString();
-  db.run(
+  await db.run(
     `UPDATE solicitudes SET estado='rechazada', respondido_por=?, respuesta=?, fecha_respuesta=? WHERE id=?`,
     [admin_id, respuesta?.trim() || null, ahora, sol.id]
   );
-  db.run(
+  await db.run(
     `INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'solicitud_rechazada',?)`,
     [sol.herramienta_id, admin_id, `Solicitud rechazada${respuesta ? ': ' + respuesta : ''}`]
   );
@@ -212,11 +212,11 @@ router.put('/:id/rechazar', soloAdmin, (req, res) => {
 
 // ── PUT /api/solicitudes/:id/cancelar  ───────────────────
 // Solo el técnico que la creó puede cancelarla
-router.put('/:id/cancelar', (req, res) => {
+router.put('/:id/cancelar', async (req, res) => {
   const db = getDb();
   const { almacen_id, id: usuario_id, rol } = req.session.usuario;
 
-  const sol = db.one(
+  const sol = await db.one(
     `SELECT s.*, h.almacen_id, h.nombre AS h_nombre
      FROM solicitudes s
      JOIN herramientas h ON h.id = s.herramienta_id
@@ -232,11 +232,11 @@ router.put('/:id/cancelar', (req, res) => {
     return res.status(403).json({ ok: false, mensaje: 'No puedes cancelar solicitudes de otros técnicos' });
 
   const ahora = new Date().toISOString();
-  db.run(
+  await db.run(
     `UPDATE solicitudes SET estado='cancelada', fecha_respuesta=? WHERE id=?`,
     [ahora, sol.id]
   );
-  db.run(
+  await db.run(
     `INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'solicitud_cancelada',?)`,
     [sol.herramienta_id, usuario_id, 'Solicitud cancelada por el técnico']
   );

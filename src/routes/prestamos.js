@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(verificarSesion);
 
 // GET /api/prestamos
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const db = getDb();
   const { almacen_id, id: usuario_id, rol } = req.session.usuario;
 
@@ -29,11 +29,11 @@ router.get('/', (req, res) => {
   if (rol === 'tecnico') { sql += ' AND p.tecnico_id = ?'; params.push(usuario_id); }
   sql += ' ORDER BY p.fecha_salida DESC';
 
-  return res.json({ ok: true, prestamos: db.all(sql, params) });
+  return res.json({ ok: true, prestamos: await db.all(sql, params) });
 });
 
 // POST /api/prestamos  →  registrar préstamo (admin only)
-router.post('/', soloAdmin, (req, res) => {
+router.post('/', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: admin_id } = req.session.usuario;
   const { herramienta_id, tecnico_id, observaciones } = req.body;
@@ -41,25 +41,25 @@ router.post('/', soloAdmin, (req, res) => {
   if (!herramienta_id || !tecnico_id)
     return res.status(400).json({ ok: false, mensaje: 'Herramienta y técnico son obligatorios' });
 
-  const h = db.one('SELECT * FROM herramientas WHERE id = ? AND almacen_id = ? AND activo = 1',
+  const h = await db.one('SELECT * FROM herramientas WHERE id = ? AND almacen_id = ? AND activo = 1',
                    [herramienta_id, almacen_id]);
   if (!h) return res.status(404).json({ ok: false, mensaje: 'Herramienta no encontrada' });
   if (h.estado !== 'disponible')
     return res.status(400).json({ ok: false, mensaje: `La herramienta está "${h.estado}", no disponible` });
 
-  const tecnico = db.one('SELECT * FROM usuarios WHERE id = ? AND almacen_id = ? AND activo = 1',
+  const tecnico = await db.one('SELECT * FROM usuarios WHERE id = ? AND almacen_id = ? AND activo = 1',
                          [tecnico_id, almacen_id]);
   if (!tecnico) return res.status(404).json({ ok: false, mensaje: 'Técnico no encontrado' });
 
   try {
-    const id = db.tx(() => {
-      const { lastInsertRowid } = db.run(
+    const id = await db.tx(async (t) => {
+      const { lastInsertRowid } = await t.run(
         `INSERT INTO prestamos (herramienta_id, tecnico_id, autorizado_por, observaciones)
          VALUES (?,?,?,?)`,
         [h.id, tecnico.id, admin_id, observaciones?.trim() || null]
       );
-      db.run("UPDATE herramientas SET estado = 'prestada' WHERE id = ?", [h.id]);
-      db.run(`INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'prestamo',?)`,
+      await t.run("UPDATE herramientas SET estado = 'prestada' WHERE id = ?", [h.id]);
+      await t.run(`INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'prestamo',?)`,
              [h.id, admin_id, `Prestada a ${tecnico.nombre_completo}`]);
       return lastInsertRowid;
     });
@@ -71,11 +71,11 @@ router.post('/', soloAdmin, (req, res) => {
 });
 
 // PUT /api/prestamos/:id/devolver  →  registrar devolución (admin only)
-router.put('/:id/devolver', soloAdmin, (req, res) => {
+router.put('/:id/devolver', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: admin_id } = req.session.usuario;
 
-  const prestamo = db.one(
+  const prestamo = await db.one(
     `SELECT p.*, h.almacen_id, h.nombre AS herramienta_nombre, t.nombre_completo AS tecnico_nombre
      FROM prestamos p
      JOIN herramientas h ON h.id = p.herramienta_id
@@ -89,11 +89,11 @@ router.put('/:id/devolver', soloAdmin, (req, res) => {
   if (prestamo.estatus !== 'activo')      return res.status(400).json({ ok: false, mensaje: 'Este préstamo ya fue cerrado' });
 
   try {
-    db.tx(() => {
+    await db.tx(async (t) => {
       const ahora = new Date().toISOString();
-      db.run("UPDATE prestamos SET estatus='devuelto', fecha_devolucion=? WHERE id=?", [ahora, prestamo.id]);
-      db.run("UPDATE herramientas SET estado='disponible' WHERE id=?", [prestamo.herramienta_id]);
-      db.run(`INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'devolucion',?)`,
+      await t.run("UPDATE prestamos SET estatus='devuelto', fecha_devolucion=? WHERE id=?", [ahora, prestamo.id]);
+      await t.run("UPDATE herramientas SET estado='disponible' WHERE id=?", [prestamo.herramienta_id]);
+      await t.run(`INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'devolucion',?)`,
              [prestamo.herramienta_id, admin_id, `Devuelta por ${prestamo.tecnico_nombre}`]);
     });
     return res.json({ ok: true, mensaje: 'Devolución registrada' });
