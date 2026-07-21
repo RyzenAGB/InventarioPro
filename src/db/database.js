@@ -15,8 +15,12 @@ let _inTx = false; // bandera de transacción activa
 // ── Persistir en disco ────────────────────────────────────
 function save() {
   if (_inTx) return; // no guardar en medio de una TX
-  const data = _db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+  try {
+    const data = _db.export();
+    fs.writeFileSync(DB_PATH, Buffer.from(data));
+  } catch (error) {
+    console.warn("No se pudo guardar la base de datos en disco (probablemente estás en un entorno de solo lectura como Vercel). Los datos se mantendrán en memoria hasta que el servidor se reinicie.");
+  }
 }
 
 // ── Helpers de query ──────────────────────────────────────
