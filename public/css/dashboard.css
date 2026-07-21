@@ -266,6 +266,17 @@
 
 .count-bar { font-size: .82rem; color: var(--text-muted); }
 
+/* ── Overlay oscuro para cerrar sidebar ────────────────── */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 499;
+  backdrop-filter: blur(2px);
+}
+#sidebar-overlay.active { display: block; }
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Layout pasa a columna única */
@@ -288,16 +299,6 @@
     box-shadow: 4px 0 24px rgba(0,0,0,.5);
   }
 
-  /* Overlay oscuro para cerrar sidebar */
-  #sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.5);
-    z-index: 499;
-    backdrop-filter: blur(2px);
-  }
-  #sidebar-overlay.active { display: block; }
 
   /* Topbar: mostrar botón hamburguesa */
   .topbar { padding: .65rem 1rem; }
