@@ -134,7 +134,10 @@ async function api(method, url, body) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok && res.status === 401) {
-    window.location.href = '/';
+    const p = window.location.pathname;
+    if (p !== '/' && p !== '/index.html' && p !== '') {
+      window.location.href = '/';
+    }
   }
 
   return { ok: res.ok, status: res.status, data };
