@@ -3,7 +3,7 @@
 // ============================================================
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const path    = require('path');
 const { initDb, getDb }    = require('./db/database');
 const { verificarSesion }  = require('./middleware/auth');
@@ -20,6 +20,7 @@ const PORT = process.env.PORT || 3000;
 // ── Middleware global ──────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res, filepath) => {
     const ext = path.extname(filepath).toLowerCase();
@@ -29,17 +30,6 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
       res.setHeader('Content-Type', mimeTypes[ext] + '; charset=utf-8');
     }
   }
-}));
-
-app.use(session({
-  secret:            'proalmacen-secret-2024',
-  resave:            false,
-  saveUninitialized: false,
-  cookie: {
-    secure:   false,        // true si usas HTTPS
-    maxAge:   8 * 60 * 60 * 1000,  // 8 horas
-    httpOnly: true,
-  },
 }));
 
 // ── Rutas de API ──────────────────────────────────────────
@@ -55,8 +45,9 @@ app.use('/api/usuarios',    usuarios);
 app.use('/api/empresa',     empresa);
 
 // ── Rutas HTML ────────────────────────────────────────────
-app.get('/', (req, res) => {
-  if (req.session && req.session.usuario) {
+app.get('/', (req, res, next) => {
+  const token = req.cookies.token;
+  if (token) {
     return res.redirect('/dashboard.html');
   }
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));

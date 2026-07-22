@@ -3,7 +3,9 @@
 // ============================================================
 const express   = require('express');
 const bcrypt    = require('bcryptjs');
+const jwt       = require('jsonwebtoken');
 const { getDb } = require('../db/database');
+const { JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -26,30 +28,47 @@ router.post('/login', async (req, res) => {
   if (!user || !bcrypt.compareSync(contrasena, user.contrasena_hash))
     return res.status(401).json({ ok: false, mensaje: 'Credenciales incorrectas' });
 
-  req.session.usuario = {
-    id:              user.id,
-    nombre_completo: user.nombre_completo,
-    correo:          user.correo,
-    rol:             user.rol,
-    empresa_id:      user.empresa_id,
-    empresa_nombre:  user.empresa_nombre,
-    almacen_id:      user.almacen_id,
-    almacen_nombre:  user.almacen_nombre,
-  };
+  const token = jwt.sign(
+    {
+      id:              user.id,
+      nombre_completo: user.nombre_completo,
+      correo:          user.correo,
+      rol:             user.rol,
+      empresa_id:      user.empresa_id,
+      empresa_nombre:  user.empresa_nombre,
+      almacen_id:      user.almacen_id,
+      almacen_nombre:  user.almacen_nombre,
+    },
+    JWT_SECRET,
+    { expiresIn: '8h' }
+  );
 
-  return res.json({ ok: true, mensaje: 'Sesión iniciada', usuario: req.session.usuario });
+  res.cookie('token', token, {
+    httpOnly: true,
+    maxAge: 8 * 60 * 60 * 1000,
+    secure: process.env.NODE_ENV === 'production'
+  });
+
+  return res.json({ ok: true, mensaje: 'Sesión iniciada' });
 });
 
 // ── LOGOUT ────────────────────────────────────────────────
 router.post('/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true, mensaje: 'Sesión cerrada' }));
+  res.clearCookie('token');
+  res.json({ ok: true, mensaje: 'Sesión cerrada' });
 });
 
 // ── SESIÓN ACTUAL ─────────────────────────────────────────
 router.get('/me', (req, res) => {
-  if (req.session && req.session.usuario)
-    return res.json({ ok: true, usuario: req.session.usuario });
-  return res.status(401).json({ ok: false, mensaje: 'No hay sesión activa' });
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ ok: false, mensaje: 'No hay sesión activa' });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return res.json({ ok: true, usuario: decoded });
+  } catch (err) {
+    return res.status(401).json({ ok: false, mensaje: 'Sesión expirada' });
+  }
 });
 
 // ── REGISTRO: crear empresa + almacén + admin ─────────────
