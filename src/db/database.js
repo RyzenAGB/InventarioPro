@@ -169,6 +169,14 @@ async function _crearTablas() {
   for (const s of stmts) {
     await client.execute(s);
   }
+
+  // Migración: Añadir columna imagen si no existe
+  try {
+    await client.execute("ALTER TABLE herramientas ADD COLUMN imagen TEXT");
+    console.log("Columna 'imagen' añadida a 'herramientas'.");
+  } catch (e) {
+    // Si la columna ya existe, SQLite lanzará un error que podemos ignorar
+  }
 }
 
 // ── Datos semilla ─────────────────────────────────────────

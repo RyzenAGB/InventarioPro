@@ -45,7 +45,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: usuario_id } = req.session.usuario;
-  const { nombre, codigo_unico, marca, modelo, descripcion, estado, categoria_id } = req.body;
+  const { nombre, codigo_unico, marca, modelo, descripcion, estado, categoria_id, imagen } = req.body;
 
   if (!nombre?.trim() || !codigo_unico?.trim())
     return res.status(400).json({ ok: false, mensaje: 'Nombre y código son obligatorios' });
@@ -57,10 +57,10 @@ router.post('/', soloAdmin, async (req, res) => {
   try {
     const id = await db.tx(async (t) => {
       const { lastInsertRowid } = await t.run(
-        `INSERT INTO herramientas (almacen_id, categoria_id, nombre, codigo_unico, marca, modelo, descripcion, estado)
-         VALUES (?,?,?,?,?,?,?,?)`,
+        `INSERT INTO herramientas (almacen_id, categoria_id, nombre, codigo_unico, marca, modelo, descripcion, estado, imagen)
+         VALUES (?,?,?,?,?,?,?,?,?)`,
         [almacen_id, categoria_id || null, nombre.trim(), codigo,
-         marca?.trim() || null, modelo?.trim() || null, descripcion?.trim() || null, estado || 'disponible']
+         marca?.trim() || null, modelo?.trim() || null, descripcion?.trim() || null, estado || 'disponible', imagen || null]
       );
       await t.run(
         `INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'alta',?)`,
@@ -79,7 +79,7 @@ router.post('/', soloAdmin, async (req, res) => {
 router.put('/:id', soloAdmin, async (req, res) => {
   const db = getDb();
   const { almacen_id, id: usuario_id } = req.session.usuario;
-  const { nombre, codigo_unico, marca, modelo, descripcion, estado, categoria_id } = req.body;
+  const { nombre, codigo_unico, marca, modelo, descripcion, estado, categoria_id, imagen } = req.body;
 
   const h = await db.one('SELECT * FROM herramientas WHERE id = ? AND almacen_id = ?', [req.params.id, almacen_id]);
   if (!h) return res.status(404).json({ ok: false, mensaje: 'Herramienta no encontrada' });
@@ -93,10 +93,10 @@ router.put('/:id', soloAdmin, async (req, res) => {
   try {
     await db.tx(async (t) => {
       await t.run(
-        `UPDATE herramientas SET nombre=?, codigo_unico=?, marca=?, modelo=?, descripcion=?, estado=?, categoria_id=?
+        `UPDATE herramientas SET nombre=?, codigo_unico=?, marca=?, modelo=?, descripcion=?, estado=?, categoria_id=?, imagen=?
          WHERE id=?`,
         [nombre?.trim() || h.nombre, codigo, marca?.trim() || null, modelo?.trim() || null,
-         descripcion?.trim() || null, estado || h.estado, categoria_id || null, h.id]
+         descripcion?.trim() || null, estado || h.estado, categoria_id || null, imagen !== undefined ? imagen : h.imagen, h.id]
       );
       await t.run(
         `INSERT INTO movimientos (herramienta_id, usuario_id, tipo, detalle) VALUES (?,?,'edicion',?)`,
