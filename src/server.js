@@ -18,8 +18,8 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Middleware global ──────────────────────────────────────
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   setHeaders: (res, filepath) => {
