@@ -49,7 +49,11 @@ router.post('/login', async (req, res) => {
     secure: process.env.NODE_ENV === 'production'
   });
 
-  return res.json({ ok: true, mensaje: 'Sesión iniciada' });
+  return res.json({ 
+    ok: true, 
+    mensaje: 'Sesión iniciada',
+    usuario: { nombre_completo: user.nombre_completo }
+  });
 });
 
 // ── LOGOUT ────────────────────────────────────────────────
