@@ -177,7 +177,7 @@ async function cargarDashboard() {
     badge.classList.add('hidden');
   }
 
-  // Tabla prstamos recientes
+  // Tabla préstamos recientes
   const tbody = document.getElementById('tbody-prestamos-recientes');
   const filas = data.recientes || [];
 
@@ -185,7 +185,7 @@ async function cargarDashboard() {
     tbody.innerHTML = `<tr><td colspan="4">
       <div class="empty-state">
         <div class="empty-icon">${icon('inbox', 'width:48px;height:48px;stroke-width:1')}</div>
-        <p>No hay prstamos activos en este momento</p>
+        <p>No hay préstamos activos en este momento</p>
       </div>
     </td></tr>`;
     return;

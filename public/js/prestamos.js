@@ -1,16 +1,16 @@
 // ============================================================
-//  ProAlmacén  Prstamos y Devoluciones
+//  ProAlmacén  Préstamos y Devoluciones
 // ============================================================
 
 let prestamosData = [];
 
-// ── Cargar prstamos ──────────────────────────────────────
+// ── Cargar préstamos ──────────────────────────────────────
 async function cargarPrestamos() {
   const tbody = document.getElementById('tbody-prestamos');
   tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:2rem;"><span class="spinner"></span></td></tr>`;
 
   const { ok, data } = await api('GET', '/api/prestamos');
-  if (!ok) { toast('Error al cargar prstamos', 'error'); return; }
+  if (!ok) { toast('Error al cargar préstamos', 'error'); return; }
 
   prestamosData = data.prestamos || [];
   renderPrestamos(prestamosData);
@@ -24,7 +24,7 @@ function renderPrestamos(lista) {
     tbody.innerHTML = `<tr><td colspan="6">
       <div class="empty-state">
         <div class="empty-icon">${icon('arrow-left-right', 'width:48px;height:48px;stroke-width:1')}</div>
-        <p>No hay prstamos registrados.</p>
+        <p>No hay préstamos registrados.</p>
         ${esAdmin ? '<button class="btn btn-primary btn-sm" onclick="abrirModalPrestamo()">+ Nuevo préstamo</button>' : ''}
       </div>
     </td></tr>`;
@@ -52,7 +52,7 @@ function renderPrestamos(lista) {
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// ── Filtrar prstamos ─────────────────────────────────────
+// ── Filtrar préstamos ─────────────────────────────────────
 function filtrarPrestamos() {
   const q      = document.getElementById('search-prestamos').value.toLowerCase();
   const estatus = document.getElementById('filtro-estatus').value;
